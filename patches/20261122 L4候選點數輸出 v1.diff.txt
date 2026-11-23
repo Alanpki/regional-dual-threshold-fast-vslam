@@ -1,0 +1,13 @@
+4a5,6
+> #include <fstream>
+> #include <cstdlib>
+2005a2008
+>     long cand_total = 0;  // [20261122 L4] 只加輸出
+2041a2045
+>         cand_total += n_cand;  // [20261122 L4] 只加輸出
+2232a2237,2241
+>     // [20261122 L4] 只加輸出（不改演算法、不影響計時）：環境變數 CAND_LOG 指定檔案時，每幀寫一行
+>     //   候選點數（NMS 後、四元樹前，8 層加總）、擷取各段延遲（ms）。未設定則不做任何事。
+>     { static std::ofstream cand_fo; static bool cand_init = false;  // 靜態物件：程式結束時自動 flush
+>       if (!cand_init) { cand_init = true; const char* cf = std::getenv("CAND_LOG"); if (cf) cand_fo.open(cf); }
+>       if (cand_fo.is_open()) cand_fo << cand_total << " " << current_stats.feature_detection << " " << current_stats.gpu_to_cpu_transfer << " " << current_stats.quadtree_distribution << " " << current_stats.total_extraction << "\n"; }

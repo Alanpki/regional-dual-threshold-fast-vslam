@@ -1,0 +1,23 @@
+# ORB-SLAM3 src/ORBextractor.cc 直式影像修正（20261116）
+559c559
+<         const int nIni = round(static_cast<float>(maxX-minX)/(maxY-minY));
+---
+>         const int nIni = std::max(1, (int)round(static_cast<float>(maxX-minX)/(maxY-minY)));  // [20261116] 直式影像（寬<高）時 round 會得 0 → 除以 0 crash；至少 1 個節點（橫式影像結果不變）
+
+# ADVIO_A_good.yaml / ADVIO_A_NKF.yaml 與 ADVIO_A.yaml 的差異
+2a3
+> # [20261116] 照先前實作者 result.zip NeighborKF/ADVIO/test_good.txt 的參數：nFeatures 1250、FAST 20/20
+54c55
+< ORBextractor.nFeatures: 2000
+---
+> ORBextractor.nFeatures: 1250
+2a3
+> # [20261116] 照先前實作者 result.zip NeighborKF/ADVIO/test_NKF.txt 的參數：nFeatures 1750、FAST 20/10
+54c55
+< ORBextractor.nFeatures: 2000
+---
+> ORBextractor.nFeatures: 1750
+66c67
+< ORBextractor.th_FAST_MIN: 20
+---
+> ORBextractor.th_FAST_MIN: 10

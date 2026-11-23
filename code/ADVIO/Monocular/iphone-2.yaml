@@ -1,0 +1,105 @@
+%YAML:1.0
+
+#--------------------------------------------------------------------------------------------
+# GPU Parameters
+#--------------------------------------------------------------------------------------------
+
+gpu.use_gpu: 1
+gpu.is_jetson: 0
+
+#--------------------------------------------------------------------------------------------
+# Camera Parameters. Adjust them!
+#--------------------------------------------------------------------------------------------
+File.version: "1.0"
+
+Camera.type: "PinHole"
+
+# Camera calibration and distortion parameters (OpenCV) 
+Camera.fx: 1077.2
+Camera.fy: 1079.3
+# Camera.fx: 538.6
+# Camera.fy: 539.65
+Camera.cx: 362.145
+Camera.cy: 636.3873
+
+Camera.k1: -0.00033
+Camera.k2: -0.00091
+Camera.p1: 0.0478
+Camera.p2: 0.0339
+
+Camera.width: 720 # 9
+Camera.height: 1280 # 16
+Camera.newWidth: 360
+Camera.newHeight: 640
+# Camera.newWidth: 180
+# Camera.newHeight: 320
+
+# Camera frames per second 
+Camera.fps: 60
+
+# Color order of the images (0: BGR, 1: RGB. It is ignored if images are grayscale)
+Camera.RGB: 1
+
+# Transformation from camera to body-frame (imu)
+IMU.T_b_c1: !!opencv-matrix
+   rows: 4
+   cols: 4
+   dt: f
+   data: [0.9999763379093255, -0.004079205042965442, -0.005539287650170447, -0.008977668364731128,
+        -0.004066386342107199, -0.9999890330121858, 0.0023234365646622014, 0.07557012320238939,
+        -0.00554870467502187, -0.0023008567036498766, -0.9999819588046867, -0.005545773942541918,
+        0.0, 0.0, 0.0, 1.0]
+
+# IMU noise
+IMU.NoiseGyro: 2.4e-3
+IMU.NoiseAcc: 4.8e-3
+IMU.GyroWalk: 5.1e-5
+IMU.AccWalk: 2.1e-4
+IMU.Frequency: 100.0
+
+mask.left: /root/Jetson-SLAM/white_mask.png
+mask.right: /root/Jetson-SLAM/white_mask.png
+
+#--------------------------------------------------------------------------------------------
+# ORB Parameters
+#--------------------------------------------------------------------------------------------
+
+ORBextractor.tile_h: 32
+ORBextractor.tile_w: 32
+
+ORBextractor.fixed_multi_scale_tile_size: 0
+ORBextractor.apply_nms_ms: 0
+ORBextractor.nms_ms_mode_gpu: 1
+
+# ORB Extractor: Number of features per image
+ORBextractor.nFeatures: 2000
+
+# ORB Extractor: Scale factor between levels in the scale pyramid 	
+ORBextractor.scaleFactor: 1.2
+
+# ORB Extractor: Number of levels in the scale pyramid	
+ORBextractor.nLevels: 8
+
+# ORB Extractor: Fast threshold
+# Image is divided in a grid. At each cell FAST are extracted imposing a minimum response.
+# Firstly we impose iniThFAST. If no corners are detected we impose a lower value minThFAST
+# You can lower these values if your images have low contrast			
+ORBextractor.th_FAST_MIN: 20
+ORBextractor.th_FAST_MAX: 20
+
+ORBextractor.FAST_N_MIN: 9
+ORBextractor.FAST_N_MAX: 14
+
+#--------------------------------------------------------------------------------------------
+# Viewer Parameters
+#---------------------------------------------------------------------------------------------
+Viewer.KeyFrameSize: 0.05
+Viewer.KeyFrameLineWidth: 1
+Viewer.GraphLineWidth: 0.9
+Viewer.PointSize: 2
+Viewer.CameraSize: 0.08
+Viewer.CameraLineWidth: 3
+Viewer.ViewpointX: 0
+Viewer.ViewpointY: -0.7
+Viewer.ViewpointZ: -1.8
+Viewer.ViewpointF: 500

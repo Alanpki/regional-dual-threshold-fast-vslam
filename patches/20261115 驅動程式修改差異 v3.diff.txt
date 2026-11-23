@@ -1,0 +1,555 @@
+--- code/Examples/Monocular/mono_euroc.cpp.orig	2026-11-15 14:13:40.238443000 +0800
++++ code/Examples/Monocular/mono_euroc.cpp	2026-11-15 21:52:58.091848759 +0800
+@@ -23,6 +23,8 @@
+ #include<algorithm>
+ #include<fstream>
+ #include<chrono>
++#include<iomanip>
++#include<array>
+ 
+ #include<opencv2/core/core.hpp>
+ #include <opencv2/imgproc/types_c.h>
+@@ -59,10 +61,11 @@
+     }
+ 
+     // Create SLAM system. It initializes all system threads and gets ready to process frames.
+-    Jetson_SLAM::System SLAM(argv[1],argv[2],Jetson_SLAM::System::MONOCULAR,true);
++    Jetson_SLAM::System SLAM(argv[1],argv[2],Jetson_SLAM::System::MONOCULAR, !(getenv("USE_VIEWER") && string(getenv("USE_VIEWER")) == "0"));  // [20261115] USE_VIEWER=0 關閉 viewer（批次執行用）
+ 
+     // Vector for tracking time statistics
+     vector<float> vTimesTrack;
++    vector<std::array<int,3>> vFrameStat;  // [20261115]
+     vTimesTrack.resize(nImages);
+ 
+     // 調整比例
+@@ -129,6 +132,8 @@
+         double ttrack= std::chrono::duration_cast<std::chrono::duration<double> >(t2 - t1).count();
+ 
+         vTimesTrack[ni]=ttrack;
++        { auto kps = SLAM.GetTrackedKeyPointsUn(); auto mps = SLAM.GetTrackedMapPoints(); int nmp = 0; for (auto* m : mps) if (m) nmp++;
++          vFrameStat.push_back({(int)kps.size(), nmp, SLAM.GetTrackingState()}); }  // [20261115] 每幀特徵點數／地圖點數／狀態（計時之後）
+ 
+         // Wait to load the next frame
+         double T=0;
+@@ -153,7 +158,8 @@
+ 
+     {
+         // Tracking time statistics
+-        sort(vTimesTrack.begin(),vTimesTrack.end());
++        { const char* ft = getenv("FRAME_TIMES"); if (ft) { ofstream fo(ft); for (int k=0; k<nImages; k++) fo << setprecision(9) << vTimestamps[k] << " " << vTimesTrack[k] << " " << (k<(int)vFrameStat.size()?vFrameStat[k][0]:-1) << " " << (k<(int)vFrameStat.size()?vFrameStat[k][1]:-1) << " " << (k<(int)vFrameStat.size()?vFrameStat[k][2]:-1) << "\n"; } }  // [20261115] 每幀追蹤時間輸出（計時迴圈之後，不影響計時）
++    sort(vTimesTrack.begin(),vTimesTrack.end());
+         float totaltime = 0;
+         for(int ni=0; ni<nImages; ni++)
+         {
+--- code/Examples/Monocular/mono_tum.cpp.orig	2026-11-15 21:51:40.401536798 +0800
++++ code/Examples/Monocular/mono_tum.cpp	2026-11-15 21:52:58.091848759 +0800
+@@ -23,6 +23,8 @@
+ #include<algorithm>
+ #include<fstream>
+ #include<chrono>
++#include<iomanip>
++#include<array>
+ 
+ #include<opencv2/core/core.hpp>
+ #include <opencv2/imgcodecs/legacy/constants_c.h>
+@@ -52,10 +54,11 @@
+     int nImages = vstrImageFilenames.size();
+ 
+     // Create SLAM system. It initializes all system threads and gets ready to process frames.
+-    Jetson_SLAM::System SLAM(argv[1],argv[2],Jetson_SLAM::System::MONOCULAR,true);
++    Jetson_SLAM::System SLAM(argv[1],argv[2],Jetson_SLAM::System::MONOCULAR, !(getenv("USE_VIEWER") && string(getenv("USE_VIEWER")) == "0"));  // [20261115] USE_VIEWER=0
+ 
+     // Vector for tracking time statistics
+     vector<float> vTimesTrack;
++    vector<std::array<int,3>> vFrameStat;  // [20261115]
+     vTimesTrack.resize(nImages);
+ 
+     cout << endl << "-------" << endl;
+@@ -95,6 +98,8 @@
+         double ttrack= std::chrono::duration_cast<std::chrono::duration<double> >(t2 - t1).count();
+ 
+         vTimesTrack[ni]=ttrack;
++        { auto kps = SLAM.GetTrackedKeyPointsUn(); auto mps = SLAM.GetTrackedMapPoints(); int nmp = 0; for (auto* m : mps) if (m) nmp++;
++          vFrameStat.push_back({(int)kps.size(), nmp, SLAM.GetTrackingState()}); }  // [20261115] 每幀特徵點數／地圖點數／狀態（計時之後）
+ 
+         // Wait to load the next frame
+         double T=0;
+@@ -111,6 +116,7 @@
+     SLAM.Shutdown();
+ 
+     // Tracking time statistics
++    { const char* ft = getenv("FRAME_TIMES"); if (ft) { ofstream fo(ft); for (int k=0; k<nImages; k++) fo << setprecision(9) << vTimestamps[k] << " " << vTimesTrack[k] << " " << (k<(int)vFrameStat.size()?vFrameStat[k][0]:-1) << " " << (k<(int)vFrameStat.size()?vFrameStat[k][1]:-1) << " " << (k<(int)vFrameStat.size()?vFrameStat[k][2]:-1) << "\n"; } }  // [20261115] 每幀追蹤時間輸出（計時迴圈之後）
+     sort(vTimesTrack.begin(),vTimesTrack.end());
+     float totaltime = 0;
+     for(int ni=0; ni<nImages; ni++)
+--- baselines/Jetson-SLAM-master/Examples/Monocular/mono_euroc.cpp.orig	2026-11-15 14:19:59.492511400 +0800
++++ baselines/Jetson-SLAM-master/Examples/Monocular/mono_euroc.cpp	2026-11-15 21:52:58.091848759 +0800
+@@ -1,157 +1,163 @@
+-/**
+-* This file is part of ORB-SLAM2.
+-*
+-* Copyright (C) 2014-2016 Raúl Mur-Artal <raulmur at unizar dot es> (University of Zaragoza)
+-* For more information see <https://github.com/raulmur/ORB_SLAM2>
+-*
+-* ORB-SLAM2 is free software: you can redistribute it and/or modify
+-* it under the terms of the GNU General Public License as published by
+-* the Free Software Foundation, either version 3 of the License, or
+-* (at your option) any later version.
+-*
+-* ORB-SLAM2 is distributed in the hope that it will be useful,
+-* but WITHOUT ANY WARRANTY; without even the implied warranty of
+-* MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+-* GNU General Public License for more details.
+-*
+-* You should have received a copy of the GNU General Public License
+-* along with ORB-SLAM2. If not, see <http://www.gnu.org/licenses/>.
+-*/
+-
+-
+-#include<iostream>
+-#include<algorithm>
+-#include<fstream>
+-#include<chrono>
+-
+-#include<opencv2/core/core.hpp>
+-#include <opencv2/imgproc/types_c.h>
+-#include <opencv2/imgcodecs/legacy/constants_c.h>
+-#include<System.h>
+-#include<unistd.h>
+-
+-using namespace std;
+-
+-void LoadImages(const string &strImagePath, const string &strPathTimes,
+-                vector<string> &vstrImages, vector<double> &vTimeStamps);
+-
+-int main(int argc, char **argv)
+-{
+-    if(argc != 5)
+-    {
+-        cerr << endl << "Usage: ./mono_tum path_to_vocabulary path_to_settings path_to_image_folder path_to_times_file" << endl;
+-        return 1;
+-    }
+-
+-    // Retrieve paths to images
+-    vector<string> vstrImageFilenames;
+-    vector<double> vTimestamps;
+-    LoadImages(string(argv[3]), string(argv[4]), vstrImageFilenames, vTimestamps);
+-
+-    int nImages = vstrImageFilenames.size();
+-
+-    if(nImages<=0)
+-    {
+-        cerr << "ERROR: Failed to load images" << endl;
+-        return 1;
+-    }
+-
+-    // Create SLAM system. It initializes all system threads and gets ready to process frames.
+-    Jetson_SLAM::System SLAM(argv[1],argv[2],Jetson_SLAM::System::MONOCULAR,true);
+-
+-    // Vector for tracking time statistics
+-    vector<float> vTimesTrack;
+-    vTimesTrack.resize(nImages);
+-
+-    cout << endl << "-------" << endl;
+-    cout << "Start processing sequence ..." << endl;
+-    cout << "Images in the sequence: " << nImages << endl << endl;
+-
+-    // Main loop
+-    cv::Mat im;
+-    for(int ni=0; ni<nImages; ni++)
+-    {
+-        // Read image from file
+-        im = cv::imread(vstrImageFilenames[ni],CV_LOAD_IMAGE_UNCHANGED);
+-        double tframe = vTimestamps[ni];
+-
+-        if(im.empty())
+-        {
+-            cerr << endl << "Failed to load image at: "
+-                 <<  vstrImageFilenames[ni] << endl;
+-            return 1;
+-        }
+-
+-#ifdef COMPILEDWITHC11
+-        std::chrono::steady_clock::time_point t1 = std::chrono::steady_clock::now();
+-#else
+-        std::chrono::steady_clock::time_point t1 = std::chrono::steady_clock::now();
+-#endif
+-
+-        // Pass the image to the SLAM system
+-        SLAM.TrackMonocular(im,tframe);
+-
+-#ifdef COMPILEDWITHC11
+-        std::chrono::steady_clock::time_point t2 = std::chrono::steady_clock::now();
+-#else
+-        std::chrono::steady_clock::time_point t2 = std::chrono::steady_clock::now();
+-#endif
+-
+-        double ttrack= std::chrono::duration_cast<std::chrono::duration<double> >(t2 - t1).count();
+-
+-        vTimesTrack[ni]=ttrack;
+-
+-        // Wait to load the next frame
+-        double T=0;
+-        if(ni<nImages-1)
+-            T = vTimestamps[ni+1]-tframe;
+-        else if(ni>0)
+-            T = tframe-vTimestamps[ni-1];
+-
+-        if(ttrack<T)
+-            usleep((T-ttrack)*1e6);
+-    }
+-
+-    // Stop all threads
+-    SLAM.Shutdown();
+-
+-    // Tracking time statistics
+-    sort(vTimesTrack.begin(),vTimesTrack.end());
+-    float totaltime = 0;
+-    for(int ni=0; ni<nImages; ni++)
+-    {
+-        totaltime+=vTimesTrack[ni];
+-    }
+-    cout << "-------" << endl << endl;
+-    cout << "median tracking time: " << vTimesTrack[nImages/2] << endl;
+-    cout << "mean tracking time: " << totaltime/nImages << endl;
+-
+-    // Save camera trajectory
+-    SLAM.SaveKeyFrameTrajectoryTUM("KeyFrameTrajectory.txt");
+-
+-    return 0;
+-}
+-
+-void LoadImages(const string &strImagePath, const string &strPathTimes,
+-                vector<string> &vstrImages, vector<double> &vTimeStamps)
+-{
+-    ifstream fTimes;
+-    fTimes.open(strPathTimes.c_str());
+-    vTimeStamps.reserve(5000);
+-    vstrImages.reserve(5000);
+-    while(!fTimes.eof())
+-    {
+-        string s;
+-        getline(fTimes,s);
+-        if(!s.empty())
+-        {
+-            stringstream ss;
+-            ss << s;
+-            vstrImages.push_back(strImagePath + "/" + ss.str() + ".png");
+-            double t;
+-            ss >> t;
+-            vTimeStamps.push_back(t/1e9);
+-
+-        }
+-    }
+-}
++/**
++* This file is part of ORB-SLAM2.
++*
++* Copyright (C) 2014-2016 Raúl Mur-Artal <raulmur at unizar dot es> (University of Zaragoza)
++* For more information see <https://github.com/raulmur/ORB_SLAM2>
++*
++* ORB-SLAM2 is free software: you can redistribute it and/or modify
++* it under the terms of the GNU General Public License as published by
++* the Free Software Foundation, either version 3 of the License, or
++* (at your option) any later version.
++*
++* ORB-SLAM2 is distributed in the hope that it will be useful,
++* but WITHOUT ANY WARRANTY; without even the implied warranty of
++* MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
++* GNU General Public License for more details.
++*
++* You should have received a copy of the GNU General Public License
++* along with ORB-SLAM2. If not, see <http://www.gnu.org/licenses/>.
++*/
++
++
++#include<iostream>
++#include<algorithm>
++#include<fstream>
++#include<chrono>
++#include<iomanip>
++#include<array>
++
++#include<opencv2/core/core.hpp>
++#include <opencv2/imgproc/types_c.h>
++#include <opencv2/imgcodecs/legacy/constants_c.h>
++#include<System.h>
++#include<unistd.h>
++
++using namespace std;
++
++void LoadImages(const string &strImagePath, const string &strPathTimes,
++                vector<string> &vstrImages, vector<double> &vTimeStamps);
++
++int main(int argc, char **argv)
++{
++    if(argc != 5)
++    {
++        cerr << endl << "Usage: ./mono_tum path_to_vocabulary path_to_settings path_to_image_folder path_to_times_file" << endl;
++        return 1;
++    }
++
++    // Retrieve paths to images
++    vector<string> vstrImageFilenames;
++    vector<double> vTimestamps;
++    LoadImages(string(argv[3]), string(argv[4]), vstrImageFilenames, vTimestamps);
++
++    int nImages = vstrImageFilenames.size();
++
++    if(nImages<=0)
++    {
++        cerr << "ERROR: Failed to load images" << endl;
++        return 1;
++    }
++
++    // Create SLAM system. It initializes all system threads and gets ready to process frames.
++    Jetson_SLAM::System SLAM(argv[1],argv[2],Jetson_SLAM::System::MONOCULAR, !(getenv("USE_VIEWER") && string(getenv("USE_VIEWER")) == "0"));  // [20261115] USE_VIEWER=0
++
++    // Vector for tracking time statistics
++    vector<float> vTimesTrack;
++    vector<std::array<int,3>> vFrameStat;  // [20261115]
++    vTimesTrack.resize(nImages);
++
++    cout << endl << "-------" << endl;
++    cout << "Start processing sequence ..." << endl;
++    cout << "Images in the sequence: " << nImages << endl << endl;
++
++    // Main loop
++    cv::Mat im;
++    for(int ni=0; ni<nImages; ni++)
++    {
++        // Read image from file
++        im = cv::imread(vstrImageFilenames[ni],CV_LOAD_IMAGE_UNCHANGED);
++        double tframe = vTimestamps[ni];
++
++        if(im.empty())
++        {
++            cerr << endl << "Failed to load image at: "
++                 <<  vstrImageFilenames[ni] << endl;
++            return 1;
++        }
++
++#ifdef COMPILEDWITHC11
++        std::chrono::steady_clock::time_point t1 = std::chrono::steady_clock::now();
++#else
++        std::chrono::steady_clock::time_point t1 = std::chrono::steady_clock::now();
++#endif
++
++        // Pass the image to the SLAM system
++        SLAM.TrackMonocular(im,tframe);
++
++#ifdef COMPILEDWITHC11
++        std::chrono::steady_clock::time_point t2 = std::chrono::steady_clock::now();
++#else
++        std::chrono::steady_clock::time_point t2 = std::chrono::steady_clock::now();
++#endif
++
++        double ttrack= std::chrono::duration_cast<std::chrono::duration<double> >(t2 - t1).count();
++
++        vTimesTrack[ni]=ttrack;
++        { auto kps = SLAM.GetTrackedKeyPointsUn(); auto mps = SLAM.GetTrackedMapPoints(); int nmp = 0; for (auto* m : mps) if (m) nmp++;
++          vFrameStat.push_back({(int)kps.size(), nmp, SLAM.GetTrackingState()}); }  // [20261115] 每幀特徵點數／地圖點數／狀態（計時之後）
++
++        // Wait to load the next frame
++        double T=0;
++        if(ni<nImages-1)
++            T = vTimestamps[ni+1]-tframe;
++        else if(ni>0)
++            T = tframe-vTimestamps[ni-1];
++
++        if(ttrack<T)
++            usleep((T-ttrack)*1e6);
++    }
++
++    // Stop all threads
++    SLAM.Shutdown();
++
++    // Tracking time statistics
++    { const char* ft = getenv("FRAME_TIMES"); if (ft) { ofstream fo(ft); for (int k=0; k<nImages; k++) fo << setprecision(9) << vTimestamps[k] << " " << vTimesTrack[k] << " " << (k<(int)vFrameStat.size()?vFrameStat[k][0]:-1) << " " << (k<(int)vFrameStat.size()?vFrameStat[k][1]:-1) << " " << (k<(int)vFrameStat.size()?vFrameStat[k][2]:-1) << "\n"; } }  // [20261115] 每幀追蹤時間輸出（計時迴圈之後，不影響計時）
++    sort(vTimesTrack.begin(),vTimesTrack.end());
++    float totaltime = 0;
++    for(int ni=0; ni<nImages; ni++)
++    {
++        totaltime+=vTimesTrack[ni];
++    }
++    cout << "-------" << endl << endl;
++    cout << "median tracking time: " << vTimesTrack[nImages/2] << endl;
++    cout << "mean tracking time: " << totaltime/nImages << endl;
++
++    // Save camera trajectory
++    SLAM.SaveKeyFrameTrajectoryTUM("KeyFrameTrajectory.txt");
++
++    return 0;
++}
++
++void LoadImages(const string &strImagePath, const string &strPathTimes,
++                vector<string> &vstrImages, vector<double> &vTimeStamps)
++{
++    ifstream fTimes;
++    fTimes.open(strPathTimes.c_str());
++    vTimeStamps.reserve(5000);
++    vstrImages.reserve(5000);
++    while(!fTimes.eof())
++    {
++        string s;
++        getline(fTimes,s);
++        if(!s.empty())
++        {
++            stringstream ss;
++            ss << s;
++            vstrImages.push_back(strImagePath + "/" + ss.str() + ".png");
++            double t;
++            ss >> t;
++            vTimeStamps.push_back(t/1e9);
++
++        }
++    }
++}
+--- baselines/Jetson-SLAM-master/Examples/Monocular/mono_tum.cpp.orig	2026-11-15 21:51:40.401536798 +0800
++++ baselines/Jetson-SLAM-master/Examples/Monocular/mono_tum.cpp	2026-11-15 21:52:58.091848759 +0800
+@@ -23,6 +23,8 @@
+ #include<algorithm>
+ #include<fstream>
+ #include<chrono>
++#include<iomanip>
++#include<array>
+ 
+ #include<opencv2/core/core.hpp>
+ #include <opencv2/imgcodecs/legacy/constants_c.h>
+@@ -52,10 +54,11 @@
+     int nImages = vstrImageFilenames.size();
+ 
+     // Create SLAM system. It initializes all system threads and gets ready to process frames.
+-    Jetson_SLAM::System SLAM(argv[1],argv[2],Jetson_SLAM::System::MONOCULAR,true);
++    Jetson_SLAM::System SLAM(argv[1],argv[2],Jetson_SLAM::System::MONOCULAR, !(getenv("USE_VIEWER") && string(getenv("USE_VIEWER")) == "0"));  // [20261115] USE_VIEWER=0
+ 
+     // Vector for tracking time statistics
+     vector<float> vTimesTrack;
++    vector<std::array<int,3>> vFrameStat;  // [20261115]
+     vTimesTrack.resize(nImages);
+ 
+     cout << endl << "-------" << endl;
+@@ -95,6 +98,8 @@
+         double ttrack= std::chrono::duration_cast<std::chrono::duration<double> >(t2 - t1).count();
+ 
+         vTimesTrack[ni]=ttrack;
++        { auto kps = SLAM.GetTrackedKeyPointsUn(); auto mps = SLAM.GetTrackedMapPoints(); int nmp = 0; for (auto* m : mps) if (m) nmp++;
++          vFrameStat.push_back({(int)kps.size(), nmp, SLAM.GetTrackingState()}); }  // [20261115] 每幀特徵點數／地圖點數／狀態（計時之後）
+ 
+         // Wait to load the next frame
+         double T=0;
+@@ -111,6 +116,7 @@
+     SLAM.Shutdown();
+ 
+     // Tracking time statistics
++    { const char* ft = getenv("FRAME_TIMES"); if (ft) { ofstream fo(ft); for (int k=0; k<nImages; k++) fo << setprecision(9) << vTimestamps[k] << " " << vTimesTrack[k] << " " << (k<(int)vFrameStat.size()?vFrameStat[k][0]:-1) << " " << (k<(int)vFrameStat.size()?vFrameStat[k][1]:-1) << " " << (k<(int)vFrameStat.size()?vFrameStat[k][2]:-1) << "\n"; } }  // [20261115] 每幀追蹤時間輸出（計時迴圈之後）
+     sort(vTimesTrack.begin(),vTimesTrack.end());
+     float totaltime = 0;
+     for(int ni=0; ni<nImages; ni++)
+--- baselines/ORB_SLAM3/Examples/Monocular/mono_euroc.cc.orig	2026-11-15 21:35:01.789158852 +0800
++++ baselines/ORB_SLAM3/Examples/Monocular/mono_euroc.cc	2026-11-15 21:52:58.091848759 +0800
+@@ -20,6 +20,8 @@
+ #include<algorithm>
+ #include<fstream>
+ #include<chrono>
++#include<iomanip>
++#include<array>
+ 
+ #include<opencv2/core/core.hpp>
+ 
+@@ -71,6 +73,7 @@
+ 
+     // Vector for tracking time statistics
+     vector<float> vTimesTrack;
++    vector<std::array<int,3>> vFrameStat;  // [20261115]
+     vTimesTrack.resize(tot_images);
+ 
+     cout << endl << "-------" << endl;
+@@ -85,6 +88,7 @@
+ 
+     double t_resize = 0.f;
+     double t_track = 0.f;
++    cout << "Start processing sequence ..." << endl;  // [20261115] 供批次腳本判斷「已開始處理影像」
+ 
+     for (seq = 0; seq<num_seq; seq++)
+     {
+@@ -153,6 +157,8 @@
+             double ttrack= std::chrono::duration_cast<std::chrono::duration<double> >(t2 - t1).count();
+ 
+             vTimesTrack[ni]=ttrack;
++            { auto kps = SLAM.GetTrackedKeyPointsUn(); auto mps = SLAM.GetTrackedMapPoints(); int nmp = 0; for (auto* m : mps) if (m) nmp++;
++              vFrameStat.push_back({(int)kps.size(), nmp, SLAM.GetTrackingState()}); }  // [20261115] 每幀特徵點數／地圖點數／狀態（計時之後）
+ 
+             // Wait to load the next frame
+             double T=0;
+@@ -183,6 +189,18 @@
+         }
+ 
+     }
++    // [20261115] 追蹤時間統計與每幀輸出（同 Jetson-SLAM 驅動程式的格式；計時迴圈之後，不影響計時）
++    {
++        int n = nImages[0];
++        const char* ft = getenv("FRAME_TIMES");
++        if (ft) { ofstream fo(ft); for (int k=0; k<n; k++) fo << setprecision(9) << vTimestampsCam[0][k] << " " << vTimesTrack[k] << " " << (k<(int)vFrameStat.size()?vFrameStat[k][0]:-1) << " " << (k<(int)vFrameStat.size()?vFrameStat[k][1]:-1) << " " << (k<(int)vFrameStat.size()?vFrameStat[k][2]:-1) << "\n"; }
++        vector<float> vs(vTimesTrack.begin(), vTimesTrack.begin()+n);
++        sort(vs.begin(), vs.end());
++        double tot = 0; for (float t : vs) tot += t;
++        cout << "median tracking time: " << vs[n/2] << endl;
++        cout << "mean tracking time: " << tot/n << endl;
++    }
++
+     // Stop all threads
+     SLAM.Shutdown();
+ 
+@@ -197,7 +215,8 @@
+     else
+     {
+         SLAM.SaveTrajectoryEuRoC("CameraTrajectory.txt");
+-        SLAM.SaveKeyFrameTrajectoryEuRoC("KeyFrameTrajectory.txt");
++        SLAM.SaveKeyFrameTrajectoryEuRoC("KeyFrameTrajectory_EuRoC.txt");
++        SLAM.SaveKeyFrameTrajectoryTUM("KeyFrameTrajectory.txt");  // [20261115] TUM 格式（秒），和先前實作者的評估一致
+     }
+ 
+     return 0;
+--- baselines/ORB_SLAM3/Examples/Monocular/mono_tum.cc.orig	2026-11-15 21:52:18.838174386 +0800
++++ baselines/ORB_SLAM3/Examples/Monocular/mono_tum.cc	2026-11-15 21:52:58.091848759 +0800
+@@ -20,6 +20,8 @@
+ #include<algorithm>
+ #include<fstream>
+ #include<chrono>
++#include<iomanip>
++#include<array>
+ 
+ #include<opencv2/core/core.hpp>
+ 
+@@ -47,11 +49,12 @@
+     int nImages = vstrImageFilenames.size();
+ 
+     // Create SLAM system. It initializes all system threads and gets ready to process frames.
+-    ORB_SLAM3::System SLAM(argv[1],argv[2],ORB_SLAM3::System::MONOCULAR,true);
++    ORB_SLAM3::System SLAM(argv[1],argv[2],ORB_SLAM3::System::MONOCULAR, !(getenv("USE_VIEWER") && string(getenv("USE_VIEWER")) == "0"));  // [20261115] USE_VIEWER=0
+     float imageScale = SLAM.GetImageScale();
+ 
+     // Vector for tracking time statistics
+     vector<float> vTimesTrack;
++    vector<std::array<int,3>> vFrameStat;  // [20261115]
+     vTimesTrack.resize(nImages);
+ 
+     cout << endl << "-------" << endl;
+@@ -122,6 +125,8 @@
+         double ttrack= std::chrono::duration_cast<std::chrono::duration<double> >(t2 - t1).count();
+ 
+         vTimesTrack[ni]=ttrack;
++        { auto kps = SLAM.GetTrackedKeyPointsUn(); auto mps = SLAM.GetTrackedMapPoints(); int nmp = 0; for (auto* m : mps) if (m) nmp++;
++          vFrameStat.push_back({(int)kps.size(), nmp, SLAM.GetTrackingState()}); }  // [20261115] 每幀特徵點數／地圖點數／狀態（計時之後）
+ 
+         // Wait to load the next frame
+         double T=0;
+@@ -138,6 +143,7 @@
+     SLAM.Shutdown();
+ 
+     // Tracking time statistics
++    { const char* ft = getenv("FRAME_TIMES"); if (ft) { ofstream fo(ft); for (int k=0; k<nImages; k++) fo << setprecision(9) << vTimestamps[k] << " " << vTimesTrack[k] << " " << (k<(int)vFrameStat.size()?vFrameStat[k][0]:-1) << " " << (k<(int)vFrameStat.size()?vFrameStat[k][1]:-1) << " " << (k<(int)vFrameStat.size()?vFrameStat[k][2]:-1) << "\n"; } }  // [20261115]
+     sort(vTimesTrack.begin(),vTimesTrack.end());
+     float totaltime = 0;
+     for(int ni=0; ni<nImages; ni++)

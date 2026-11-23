@@ -1,0 +1,12 @@
+726c726
+<     const int np_min = 50;
+---
+>     const int np_min = 100;  // [20261122 B] align with code_v3 (orig 50)
+765c765
+<         if(nmatches<np_min)
+---
+>         if(nmatches<50)  // [20261122 B] align with code_v3 (orig np_min=50)
+854c854
+<     if(medianDepth<0 || pKFcur->TrackedMapPoints(1)<100)
+---
+>     if(medianDepth<0 || pKFcur->TrackedMapPoints(1)<50)  // [20261122 B] align with code_v3 (orig 100)

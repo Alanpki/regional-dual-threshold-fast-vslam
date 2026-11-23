@@ -1,0 +1,85 @@
+%YAML:1.0
+# [20261115] TUM RGB-D fr3 用：由 EuRoC 設定複製，只換相機內參／尺寸／fps（取自 TUM3.yaml），其餘參數相同
+
+#--------------------------------------------------------------------------------------------
+# GPU Parameters
+#--------------------------------------------------------------------------------------------
+
+gpu.use_gpu: 1
+gpu.is_jetson: 0
+
+#--------------------------------------------------------------------------------------------
+# Camera Parameters. Adjust them!
+#--------------------------------------------------------------------------------------------
+
+# Camera calibration and distortion parameters (OpenCV) 
+Camera.fx: 535.4
+Camera.fy: 539.2
+# Camera.fx: 249.327
+# Camera.fy: 248.648
+Camera.cx: 320.1
+Camera.cy: 247.6
+
+Camera.k1: 0.0
+Camera.k2: 0.0
+Camera.p1: 0.0
+Camera.p2: 0.0
+
+Camera.width: 640
+Camera.height: 480
+# Camera.newWidth: 600
+# Camera.newHeight: 350
+
+# Camera frames per second 
+Camera.fps: 30.0
+
+# Color order of the images (0: BGR, 1: RGB. It is ignored if images are grayscale)
+Camera.RGB: 1
+
+mask.left: /root/Jetson-SLAM/white_mask_640x480.png
+mask.right: /root/Jetson-SLAM/white_mask_640x480.png
+
+#--------------------------------------------------------------------------------------------
+# ORB Parameters
+#--------------------------------------------------------------------------------------------
+
+ORBextractor.tile_h: 32
+ORBextractor.tile_w: 32
+
+ORBextractor.fixed_multi_scale_tile_size: 0
+ORBextractor.apply_nms_ms: 0
+ORBextractor.nms_ms_mode_gpu: 1
+
+# ORB Extractor: Number of features per image
+ORBextractor.nFeatures: 1000
+
+# ORB Extractor: Scale factor between levels in the scale pyramid 	
+ORBextractor.scaleFactor: 1.2
+
+# ORB Extractor: Number of levels in the scale pyramid	
+ORBextractor.nLevels: 8
+
+# ORB Extractor: Fast threshold
+# Image is divided in a grid. At each cell FAST are extracted imposing a minimum response.
+# Firstly we impose iniThFAST. If no corners are detected we impose a lower value minThFAST
+# You can lower these values if your images have low contrast			
+ORBextractor.th_FAST_MIN: 10
+ORBextractor.th_FAST_MAX: 20 # 20
+
+ORBextractor.FAST_N_MIN: 9
+ORBextractor.FAST_N_MAX: 14 # 14
+
+#--------------------------------------------------------------------------------------------
+# Viewer Parameters
+#---------------------------------------------------------------------------------------------
+Viewer.KeyFrameSize: 0.05
+Viewer.KeyFrameLineWidth: 1
+Viewer.GraphLineWidth: 0.9
+Viewer.PointSize:2
+Viewer.CameraSize: 0.08
+Viewer.CameraLineWidth: 3
+Viewer.ViewpointX: 0
+Viewer.ViewpointY: -0.7
+Viewer.ViewpointZ: -1.8
+Viewer.ViewpointF: 500
+
